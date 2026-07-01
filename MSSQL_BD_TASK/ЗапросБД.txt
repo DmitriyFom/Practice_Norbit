@@ -1,0 +1,340 @@
+CREATE DATABASE AutoSalonDB;
+
+CREATE TABLE Brands (
+    BrandID UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    
+    BrandName NVARCHAR(100) NOT NULL,                       
+    Country NVARCHAR(50) NOT NULL,                           
+    IsActive BIT NOT NULL DEFAULT 1,                       
+    FoundedYear INT NULL,                                    
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE()           
+);
+GO
+
+CREATE TABLE Models (
+    ModelID UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),   
+    ModelName NVARCHAR(100) NOT NULL,                        
+    BrandID UNIQUEIDENTIFIER NOT NULL,                       
+    BodyType NVARCHAR(50) NOT NULL,                          
+    BasePrice DECIMAL(12,2) NOT NULL,                      
+    IsActive BIT NOT NULL DEFAULT 1,                        
+    
+    CONSTRAINT FK_Models_Brands 
+    FOREIGN KEY (BrandID) REFERENCES Brands(BrandID)
+);
+GO
+
+CREATE TABLE Cars (
+    CarID UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),     
+    VIN NVARCHAR(17) NOT NULL,                              
+    ModelID UNIQUEIDENTIFIER NOT NULL,                       
+    Color NVARCHAR(30) NOT NULL,                            
+    YearOfManufacture INT NOT NULL,                         
+    Mileage INT NOT NULL DEFAULT 0,                          
+    Price DECIMAL(12,2) NOT NULL,                           
+    IsSold BIT NOT NULL DEFAULT 0,                          
+    ArrivalDate DATETIME2 NOT NULL DEFAULT GETDATE(),        
+    DiscountPercent DECIMAL(4,2) NULL                        
+);
+GO
+
+CREATE UNIQUE INDEX UX_Cars_VIN 
+ON Cars(VIN);
+GO
+
+-- клиенты
+CREATE TABLE Customers (
+    CustomerID UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(), 
+    FirstName NVARCHAR(50) NOT NULL,                         
+    LastName NVARCHAR(50) NOT NULL,                         
+    Phone NVARCHAR(20) NOT NULL,                             
+    Email NVARCHAR(100) NULL,                                
+    IsVIP BIT NOT NULL DEFAULT 0,                            
+    RegistrationDate DATETIME2 NOT NULL DEFAULT GETDATE()    
+);
+GO
+
+CREATE TABLE Sales (
+    SaleID UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),     
+    CarID UNIQUEIDENTIFIER NOT NULL,                        
+    CustomerID UNIQUEIDENTIFIER NOT NULL,                
+    SaleDate DATETIME2 NOT NULL DEFAULT GETDATE(),          
+    FinalPrice DECIMAL(12,2) NOT NULL,                    
+    PaymentMethod NVARCHAR(50) NOT NULL,                     
+    IsCompleted BIT NOT NULL DEFAULT 0,                      
+    
+    CONSTRAINT FK_Sales_Cars 
+    FOREIGN KEY (CarID) REFERENCES Cars(CarID),
+    
+    CONSTRAINT FK_Sales_Customers 
+    FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID)
+);
+GO
+
+--доп услуги
+CREATE TABLE Services (
+    ServiceID UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),  
+    ServiceName NVARCHAR(100) NOT NULL,                      
+    Price DECIMAL(10,2) NOT NULL,                            
+    IsActive BIT NOT NULL DEFAULT 1,                         
+    Description NVARCHAR(500) NULL                           
+);
+GO
+
+-- промежуточная таблицпа для связи продаж и услуг 
+CREATE TABLE SalesServices (
+    SaleID UNIQUEIDENTIFIER NOT NULL,
+    ServiceID UNIQUEIDENTIFIER NOT NULL,
+    ServicePrice DECIMAL(10,2) NOT NULL,                    
+    
+    CONSTRAINT PK_SalesServices PRIMARY KEY (SaleID, ServiceID),
+    
+    CONSTRAINT FK_SalesServices_Sales 
+    FOREIGN KEY (SaleID) REFERENCES Sales(SaleID),
+    
+    CONSTRAINT FK_SalesServices_Services 
+    FOREIGN KEY (ServiceID) REFERENCES Services(ServiceID)
+);
+
+
+INSERT INTO Brands (BrandName, Country, IsActive, FoundedYear)
+VALUES 
+('Toyota', 'Япония', 1, 1937),
+('BMW', 'Германия', 1, 1916),
+('Mercedes-Benz', 'Германия', 1, 1926),
+('Lada', 'Россия', 1, 1966),
+('Kia', 'Южная Корея', 1, 1944),
+('Audi', 'Германия', 1, 1909);
+
+-- Модели
+DECLARE @Toyota UNIQUEIDENTIFIER = (SELECT BrandID FROM Brands WHERE BrandName = 'Toyota');
+DECLARE @BMW UNIQUEIDENTIFIER = (SELECT BrandID FROM Brands WHERE BrandName = 'BMW');
+DECLARE @Mercedes UNIQUEIDENTIFIER = (SELECT BrandID FROM Brands WHERE BrandName = 'Mercedes-Benz');
+DECLARE @Lada UNIQUEIDENTIFIER = (SELECT BrandID FROM Brands WHERE BrandName = 'Lada');
+DECLARE @Kia UNIQUEIDENTIFIER = (SELECT BrandID FROM Brands WHERE BrandName = 'Kia');
+DECLARE @Audi UNIQUEIDENTIFIER = (SELECT BrandID FROM Brands WHERE BrandName = 'Audi');
+
+INSERT INTO Models (ModelName, BrandID, BodyType, BasePrice, IsActive)
+VALUES 
+('Camry', @Toyota, 'Седан', 2500000.00, 1),
+('RAV4', @Toyota, 'Кроссовер', 3200000.00, 1),
+('X5', @BMW, 'Кроссовер', 6500000.00, 1),
+('3 Series', @BMW, 'Седан', 4200000.00, 1),
+('E-Class', @Mercedes, 'Седан', 5800000.00, 1),
+('GLC', @Mercedes, 'Кроссовер', 6200000.00, 1),
+('Vesta', @Lada, 'Седан', 1200000.00, 1),
+('Niva Travel', @Lada, 'Внедорожник', 1500000.00, 1),
+('Sportage', @Kia, 'Кроссовер', 2800000.00, 1),
+('Rio', @Kia, 'Седан', 1600000.00, 1),
+('Q5', @Audi, 'Кроссовер', 5500000.00, 1);
+
+-- Автомобили в наличии (с VIN)
+DECLARE @Camry UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = 'Camry');
+DECLARE @RAV4 UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = 'RAV4');
+DECLARE @X5 UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = 'X5');
+DECLARE @Series3 UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = '3 Series');
+DECLARE @EClass UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = 'E-Class');
+DECLARE @GLC UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = 'GLC');
+DECLARE @Vesta UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = 'Vesta');
+DECLARE @Niva UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = 'Niva Travel');
+DECLARE @Sportage UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = 'Sportage');
+DECLARE @Rio UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = 'Rio');
+DECLARE @Q5 UNIQUEIDENTIFIER = (SELECT ModelID FROM Models WHERE ModelName = 'Q5');
+
+INSERT INTO Cars (VIN, ModelID, Color, YearOfManufacture, Mileage, Price, IsSold, DiscountPercent)
+VALUES 
+('XTA219000K0123456', @Camry, 'Белый', 2025, 0, 2650000.00, 0, 5.00),
+('JTEBW3FV80D123456', @RAV4, 'Черный', 2025, 0, 3350000.00, 0, NULL),
+('WBAJB0C55JB123456', @X5, 'Синий', 2024, 15000, 6200000.00, 0, 10.00),
+('WBA8E3C50HK123456', @Series3, 'Серый', 2025, 0, 4300000.00, 1, NULL),
+('WDD2130461A123456', @EClass, 'Черный', 2025, 0, 5950000.00, 0, NULL),
+('WDC0J6CB5KF123456', @GLC, 'Белый', 2024, 8000, 6100000.00, 0, 7.00),
+('XTA219110L0123456', @Vesta, 'Красный', 2025, 0, 1250000.00, 0, NULL),
+('XTA212140M0123456', @Niva, 'Зеленый', 2025, 0, 1550000.00, 0, NULL),
+('Z94CT41DBMR123456', @Sportage, 'Серебристый', 2025, 0, 2900000.00, 1, NULL),
+('Z94CT41ABNR123456', @Rio, 'Белый', 2025, 0, 1650000.00, 0, 3.00),
+('WAUZZZ8R5KA123456', @Q5, 'Черный', 2024, 12000, 5400000.00, 0, 8.00);
+
+-- Клиенты
+INSERT INTO Customers (FirstName, LastName, Phone, Email, IsVIP)
+VALUES 
+('Иван', 'Петров', '+7 (900) 123-45-67', 'ivan.petrov@mail.ru', 1),
+('Мария', 'Сидорова', '+7 (900) 234-56-78', 'maria.sidorova@mail.ru', 0),
+('Алексей', 'Иванов', '+7 (900) 345-67-89', 'alexey.ivanov@mail.ru', 1),
+('Елена', 'Козлова', '+7 (900) 456-78-90', 'elena.kozlova@mail.ru', 0),
+('Дмитрий', 'Смирнов', '+7 (900) 567-89-01', 'dmitry.smirnov@mail.ru', 0),
+('Анна', 'Волкова', '+7 (900) 678-90-12', 'anna.volkova@mail.ru', 1);
+
+-- Услуги
+INSERT INTO Services (ServiceName, Price, IsActive, Description)
+VALUES 
+('Установка сигнализации', 25000.00, 1, 'Охранная система с автозапуском'),
+('Тонировка стекол', 15000.00, 1, 'Тонировка всех стекол пленкой'),
+('Химчистка салона', 8000.00, 1, 'Полная химчистка салона'),
+('Керамическое покрытие', 45000.00, 1, 'Защитное покрытие кузова'),
+('Установка видеорегистратора', 12000.00, 1, 'Регистратор с установкой'),
+('Шиномонтаж', 6000.00, 1, 'Замена шин с балансировкой'),
+('Антикоррозийная обработка', 18000.00, 0, 'Обработка днища и арок');
+
+-- Продажи
+DECLARE @Car1 UNIQUEIDENTIFIER = (SELECT CarID FROM Cars WHERE VIN = 'XTA219000K0123456');
+DECLARE @Car4 UNIQUEIDENTIFIER = (SELECT CarID FROM Cars WHERE VIN = 'WBA8E3C50HK123456');
+DECLARE @Car9 UNIQUEIDENTIFIER = (SELECT CarID FROM Cars WHERE VIN = 'Z94CT41DBMR123456');
+DECLARE @Cust1 UNIQUEIDENTIFIER = (SELECT CustomerID FROM Customers WHERE Email = 'ivan.petrov@mail.ru');
+DECLARE @Cust3 UNIQUEIDENTIFIER = (SELECT CustomerID FROM Customers WHERE Email = 'alexey.ivanov@mail.ru');
+DECLARE @Cust5 UNIQUEIDENTIFIER = (SELECT CustomerID FROM Customers WHERE Email = 'dmitry.smirnov@mail.ru');
+
+INSERT INTO Sales (CarID, CustomerID, SaleDate, FinalPrice, PaymentMethod, IsCompleted)
+VALUES 
+(@Car4, @Cust1, '2026-06-15', 4300000.00, 'Кредит', 1),
+(@Car9, @Cust3, '2026-06-20', 2900000.00, 'Наличные', 1),
+(@Car1, @Cust5, '2026-06-28', 2517500.00, 'Лизинг', 0);
+
+-- Связь N:N: Услуги на продажах
+DECLARE @Sale1 UNIQUEIDENTIFIER = (SELECT SaleID FROM Sales WHERE CarID = @Car4);
+DECLARE @Sale2 UNIQUEIDENTIFIER = (SELECT SaleID FROM Sales WHERE CarID = @Car9);
+DECLARE @Sale3 UNIQUEIDENTIFIER = (SELECT SaleID FROM Sales WHERE CarID = @Car1);
+DECLARE @Serv1 UNIQUEIDENTIFIER = (SELECT ServiceID FROM Services WHERE ServiceName = 'Установка сигнализации');
+DECLARE @Serv2 UNIQUEIDENTIFIER = (SELECT ServiceID FROM Services WHERE ServiceName = 'Тонировка стекол');
+DECLARE @Serv3 UNIQUEIDENTIFIER = (SELECT ServiceID FROM Services WHERE ServiceName = 'Керамическое покрытие');
+DECLARE @Serv4 UNIQUEIDENTIFIER = (SELECT ServiceID FROM Services WHERE ServiceName = 'Химчистка салона');
+DECLARE @Serv5 UNIQUEIDENTIFIER = (SELECT ServiceID FROM Services WHERE ServiceName = 'Установка видеорегистратора');
+
+INSERT INTO SalesServices (SaleID, ServiceID, ServicePrice)
+VALUES 
+(@Sale1, @Serv1, 25000.00),
+(@Sale1, @Serv2, 15000.00),
+(@Sale2, @Serv3, 45000.00),
+(@Sale2, @Serv4, 8000.00),
+(@Sale3, @Serv1, 25000.00),
+(@Sale3, @Serv5, 12000.00);
+GO
+
+
+SELECT 
+    b.BrandName,
+    m.ModelName,
+    c.Color,
+    c.YearOfManufacture,
+    c.Price,
+    c.DiscountPercent
+FROM Cars c
+INNER JOIN Models m ON c.ModelID = m.ModelID
+INNER JOIN Brands b ON m.BrandID = b.BrandID
+WHERE c.IsSold = 0 
+  AND m.BodyType = 'Кроссовер' 
+  AND c.Price > 3000000
+ORDER BY c.Price DESC;
+
+-- Обновление данных
+-- Применить скидку 5% ко всем автомобилям старше 2024 года с пробегом более 10000 км
+UPDATE Cars
+SET DiscountPercent = 5.00
+WHERE YearOfManufacture < 2025 
+  AND Mileage > 10000 
+  AND IsSold = 0;
+
+-- Удаление данных
+-- Удалить неактивные услуги (которые больше не предоставляются)
+DELETE FROM SalesServices 
+WHERE ServiceID IN (
+    SELECT ServiceID FROM Services WHERE IsActive = 0
+);
+
+DELETE FROM Services 
+WHERE IsActive = 0;
+
+-- Выборка с группировкой 
+-- Статистика продаж по маркам автомобилей
+SELECT 
+    b.BrandName,
+    COUNT(s.SaleID) AS TotalSales,
+    SUM(s.FinalPrice) AS TotalRevenue,
+    AVG(s.FinalPrice) AS AvgSalePrice,
+    MIN(s.FinalPrice) AS MinSalePrice,
+    MAX(s.FinalPrice) AS MaxSalePrice
+FROM Sales s
+INNER JOIN Cars c ON s.CarID = c.CarID
+INNER JOIN Models m ON c.ModelID = m.ModelID
+INNER JOIN Brands b ON m.BrandID = b.BrandID
+WHERE s.IsCompleted = 1
+GROUP BY b.BrandName
+HAVING COUNT(s.SaleID) >= 1
+ORDER BY TotalRevenue DESC;
+
+-- LEFT JOIN
+-- Найти всех клиентов и их покупки
+SELECT 
+    c.FirstName + ' ' + c.LastName AS CustomerName,
+    c.Phone,
+    c.IsVIP,
+    s.SaleDate,
+    b.BrandName + ' ' + m.ModelName AS CarPurchased,
+    s.FinalPrice
+FROM Customers c
+LEFT JOIN Sales s ON c.CustomerID = s.CustomerID
+LEFT JOIN Cars ca ON s.CarID = ca.CarID
+LEFT JOIN Models m ON ca.ModelID = m.ModelID
+LEFT JOIN Brands b ON m.BrandID = b.BrandID
+ORDER BY c.LastName, c.FirstName;
+
+-- RIGHT JOIN
+-- Найти все автомобили и информацию об их продаже 
+SELECT 
+    b.BrandName,
+    m.ModelName,
+    c.VIN,
+    c.Color,
+    c.Price,
+    c.IsSold,
+    s.SaleDate,
+    cust.FirstName + ' ' + cust.LastName AS BuyerName
+FROM Sales s
+RIGHT JOIN Cars c ON s.CarID = c.CarID
+LEFT JOIN Models m ON c.ModelID = m.ModelID
+LEFT JOIN Brands b ON m.BrandID = b.BrandID
+LEFT JOIN Customers cust ON s.CustomerID = cust.CustomerID
+ORDER BY c.IsSold, b.BrandName;
+
+-- INNER JOIN (пересечение)
+-- Найти VIP-клиентов, которые совершили покупки
+SELECT DISTINCT
+    c.FirstName + ' ' + c.LastName AS VIPCustomer,
+    c.Email,
+    COUNT(s.SaleID) OVER(PARTITION BY c.CustomerID) AS PurchaseCount,
+    SUM(s.FinalPrice) OVER(PARTITION BY c.CustomerID) AS TotalSpent
+FROM Customers c
+INNER JOIN Sales s ON c.CustomerID = s.CustomerID
+WHERE c.IsVIP = 1 AND s.IsCompleted = 1;
+
+--Подсчет дополнительных услуг по каждой продаже
+SELECT 
+    s.SaleID,
+    c.FirstName + ' ' + c.LastName AS CustomerName,
+    b.BrandName + ' ' + m.ModelName AS CarModel,
+    s.FinalPrice AS CarPrice,
+    COUNT(ss.ServiceID) AS ServicesCount,
+    SUM(ss.ServicePrice) AS TotalServicesPrice,
+    s.FinalPrice + ISNULL(SUM(ss.ServicePrice), 0) AS TotalDealPrice
+FROM Sales s
+INNER JOIN Customers c ON s.CustomerID = c.CustomerID
+INNER JOIN Cars ca ON s.CarID = ca.CarID
+INNER JOIN Models m ON ca.ModelID = m.ModelID
+INNER JOIN Brands b ON m.BrandID = b.BrandID
+LEFT JOIN SalesServices ss ON s.SaleID = ss.SaleID
+GROUP BY s.SaleID, c.FirstName, c.LastName, b.BrandName, m.ModelName, s.FinalPrice;
+
+-- Анализ доступных автомобилей по категориям
+SELECT 
+    m.BodyType,
+    b.BrandName,
+    COUNT(c.CarID) AS AvailableCount,
+    AVG(c.Price) AS AvgPrice,
+    MIN(c.Price) AS MinPrice,
+    MAX(c.Price) AS MaxPrice
+FROM Cars c
+INNER JOIN Models m ON c.ModelID = m.ModelID
+INNER JOIN Brands b ON m.BrandID = b.BrandID
+WHERE c.IsSold = 0 AND m.IsActive = 1
+GROUP BY m.BodyType, b.BrandName
+ORDER BY m.BodyType, AvgPrice DESC;
+
