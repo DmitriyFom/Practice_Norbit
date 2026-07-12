@@ -22,7 +22,7 @@
       </div>
     </div>
 
-    <template v-else>ы
+    <template v-else>
       <div class="card" style="margin-bottom: 20px;">
         <div class="card-body">
           <div class="filter-tabs">
